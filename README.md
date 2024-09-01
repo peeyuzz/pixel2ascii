@@ -101,14 +101,3 @@ python ascii_art_generator.py --file-path <path_to_image_or_video> [options]
 
 - **`save_ascii_art(art, file_format, output_path)`**: Saves the ASCII art output as an image or video file.
 
-### Main Execution
-
-The script's entry point is defined in the `if __name__ == "__main__":` block, which parses command-line arguments and initiates the ASCII art generation process.
-
-## License
-
-This project is licensed under the MIT License. Feel free to use, modify, and distribute this code as per the license terms.
-
----
-
-Thank you for using the ASCII Art Generator! If you have any questions or suggestions, please feel free to open an issue in the repository. Happy coding!
