@@ -1,6 +1,6 @@
-# ASCII Art Generator
+# pixel2ascii
 
-Welcome to the ASCII Art Generator! This Python script converts images, GIFs, and videos into ASCII art. You can customize the output with various parameters such as scale factor, contrast, and frame rate for animations. This README will guide you through installation, usage, and understanding the code.
+convert images, GIFs, and videos into ASCII art.
 
 ## Table of Contents
 
