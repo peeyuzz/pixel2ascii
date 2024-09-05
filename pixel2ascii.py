@@ -178,6 +178,7 @@ def resize_dimensions(width, height, max_width, max_height):
 
     return width, height
 
+
 def process_frame(ascii_frame, font, width, height):
     """Converts an ASCII frame to an image and resizes if necessary."""
     frame = convert_text_to_image(ascii_frame, font)
