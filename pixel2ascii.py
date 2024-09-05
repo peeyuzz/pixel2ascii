@@ -42,16 +42,13 @@ def generate_ascii_art(file_path, scale_factor=1, contrast=1):
                     ret, frame = cap.read()
                     if not ret:
                         break
-                    futures.append(executor.submit(process_frame, frame, scale_factor, contrast))
+                    futures.append(executor.submit(frame_to_ascii, frame, scale_factor, contrast))
 
                 for future in futures:
                     frames.append(future.result())
             cap.release()
         
         return frames, file_path.split('.')[-1]
-
-def process_frame(frame, scale_factor, contrast):
-    return frame_to_ascii(frame, scale_factor, contrast)
 
 def frame_to_ascii(frame, scale_factor=1, contrast=1):
     frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -101,14 +98,19 @@ def save_ascii_art(art, file_format, output_path):
     if isinstance(art, list):
         if file_format == 'gif':
             images = []
-            font = ImageFont.load_default()
+            font_path = r"c:\WINDOWS\FONTS\CONSOLA.TTF"
+            font = ImageFont.truetype(font_path)
             for ascii_frame in art:
-                img = Image.new('RGB', (len(ascii_frame.split('\n')[0]) * 10, len(ascii_frame.split('\n')) * 15), color='white')
+                img = Image.new('RGB', (len(ascii_frame.split('\n')[0]) * 15, len(ascii_frame.split('\n')) * 20), color='black')
                 d = ImageDraw.Draw(img)
-                d.text((0, 0), ascii_frame, fill='black', font=font)
+                d.text((0, 0), ascii_frame, fill='white', font=font)
                 images.append(img)
             images[0].save(output_path, save_all=True, append_images=images[1:], duration=100, loop=0)
         elif file_format == 'mp4':
+            ft2 = cv2.freetype.createFreeType2()
+            font_path = r"c:\WINDOWS\Fonts\CONSOLA.TTF"
+            ft2.loadFontData(font_path, 0)
+        
             height, width = len(art[0].split('\n')) * 15, len(art[0].split('\n')[0]) * 10
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             out = cv2.VideoWriter(output_path, fourcc, 10.0, (width, height))
@@ -120,10 +122,11 @@ def save_ascii_art(art, file_format, output_path):
                 out.write(img)
             out.release()
     else:
-        font = ImageFont.load_default()
-        img = Image.new('RGB', (len(art.split('\n')[0]) * 10, len(art.split('\n')) * 15), color='white')
+        font_path = r"c:\WINDOWS\Fonts\CONSOLA.TTF"
+        font = ImageFont.truetype(font_path)
+        img = Image.new('RGB', (len(art.split('\n')[0]) * 10, len(art.split('\n')) * 15), color='black')
         d = ImageDraw.Draw(img)
-        d.text((0, 0), art, fill='black', font=font)
+        d.text((0, 0), art, fill='white', font=font)
         img.save(output_path)
 
 if __name__ == "__main__":
