@@ -23,8 +23,8 @@ def load_image(file_path):
     """Loads an image from a file path or URL."""
     if file_path.startswith(("http://", "https://")):
         logging.info(f"Loading image from URL: {file_path}")
-        return Image.open(urlopen(file_path)), "png"
-    elif file_path.endswith((".jpg", ".jpeg", ".png", ".gif")):
+        return Image.open(urlopen(file_path))
+    elif file_path.endswith((".jpg", ".jpeg", ".png", ".gif", ".jfif")):
         logging.info(f"Loading image from file: {file_path}")
         return Image.open(file_path)
     else:
@@ -210,8 +210,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-        file_format = args.file_path.split('.')[-1]
-        if file_format in ["jpg", "jpeg", "png"]:
+        file_format = args.file_path.split('.')[-1] if not args.file_path.startswith(("http://", "https://")) else "jpg"
+        if file_format in ["jpg", "jpeg", "png", "jfif"] or args.file_path.startswith(("http://", "https://")):
             image = load_image(args.file_path)
             ascii_art = generate_ascii(image, args.scale_factor, args.contrast)
             print(ascii_art)
