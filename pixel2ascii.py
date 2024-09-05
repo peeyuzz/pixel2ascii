@@ -81,10 +81,42 @@ def frame_to_ascii(frame, scale_factor=1, contrast=1):
 
     return ascii_frame
 
+# def save_ascii_art(art, file_format, output_path):
+#     """Saves ASCII art to an output file."""
+#     font_path = r"c:\WINDOWS\Fonts\CONSOLA.TTF"
+#     font = ImageFont.truetype(font_path, size=15)
+
+#     if isinstance(art, list):
+#         logging.info(f"Saving ASCII art as {file_format} to {output_path}")
+#         if file_format == 'gif':
+#             images = [convert_text_to_image(ascii_frame, font) for ascii_frame in art]
+#             images[0].save(output_path, save_all=True, append_images=images[1:], duration=100, loop=0)
+#         elif file_format == 'mp4':
+#             height = len(art[0].split('\n')) * 20
+#             width = len(art[0].split('\n')[0]) * 15
+#             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+#             out = cv2.VideoWriter(output_path, fourcc, 10.0, (width, height))
+#             for ascii_frame in art:
+#                 frame = convert_text_to_image(ascii_frame, font)
+#                 out.write(cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR))
+#             out.release()
+#     else:
+#         convert_text_to_image(art, font).save(output_path)
+
+from PIL import Image, ImageDraw, ImageFont
+import numpy as np
+import cv2
+import logging
+from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor
+
 def save_ascii_art(art, file_format, output_path):
     """Saves ASCII art to an output file."""
     font_path = r"c:\WINDOWS\Fonts\CONSOLA.TTF"
     font = ImageFont.truetype(font_path, size=15)
+
+    # Define maximum dimensions for MPEG-4
+    max_width, max_height = 4096, 2304
 
     if isinstance(art, list):
         logging.info(f"Saving ASCII art as {file_format} to {output_path}")
@@ -92,16 +124,71 @@ def save_ascii_art(art, file_format, output_path):
             images = [convert_text_to_image(ascii_frame, font) for ascii_frame in art]
             images[0].save(output_path, save_all=True, append_images=images[1:], duration=100, loop=0)
         elif file_format == 'mp4':
+            # Calculate the initial frame size
             height = len(art[0].split('\n')) * 20
             width = len(art[0].split('\n')[0]) * 15
+
+            # Check and adjust dimensions if they exceed MPEG-4 limits
+            if width > max_width or height > max_height:
+                width, height = resize_dimensions(width, height, max_width, max_height)
+
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             out = cv2.VideoWriter(output_path, fourcc, 10.0, (width, height))
-            for ascii_frame in art:
-                frame = convert_text_to_image(ascii_frame, font)
-                out.write(cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR))
+
+            # Use ThreadPoolExecutor to parallelize frame processing
+            with ThreadPoolExecutor() as executor:
+                # Process and save frames with tqdm progress bar
+                futures = []
+                for ascii_frame in art:
+                    futures.append(executor.submit(process_frame, ascii_frame, font, width, height))
+
+                for future in tqdm(futures, desc="Saving frames to MP4", unit="frame"):
+                    frame = future.result()
+                    out.write(frame)
+
             out.release()
+            logging.info(f"MP4 video saved successfully to {output_path}")
     else:
-        convert_text_to_image(art, font).save(output_path)
+        # Convert single ASCII art to image and save
+        img = convert_text_to_image(art, font)
+        img.save(output_path)
+        logging.info(f"ASCII art saved as image to {output_path}")
+
+def convert_text_to_image(text, font):
+    """Converts ASCII text to an image."""
+    lines = text.split('\n')
+    width = max(len(line) for line in lines) * 15
+    height = len(lines) * 20
+    img = Image.new('RGB', (width, height), color='black')
+    d = ImageDraw.Draw(img)
+    d.text((0, 0), text, fill='white', font=font)
+    return img
+
+def resize_dimensions(width, height, max_width, max_height):
+    """Calculates the new dimensions to fit within the maximum while maintaining aspect ratio."""
+    aspect_ratio = width / height
+
+    if width > max_width:
+        width = max_width
+        height = int(width / aspect_ratio)
+
+    if height > max_height:
+        height = max_height
+        width = int(height * aspect_ratio)
+
+    return width, height
+
+def process_frame(ascii_frame, font, width, height):
+    """Converts an ASCII frame to an image and resizes if necessary."""
+    frame = convert_text_to_image(ascii_frame, font)
+    
+    # Resize frame if necessary
+    if frame.size[0] > width or frame.size[1] > height:
+        frame = frame.resize((width, height), Image.LANCZOS)
+    
+    # Convert PIL Image to OpenCV format
+    return cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR)
+
 
 def convert_text_to_image(text, font):
     """Converts ASCII text to an image."""
@@ -138,3 +225,6 @@ if __name__ == "__main__":
             logging.info(f"ASCII art saved to ascii_output.{file_format}")
     except Exception as e:
         logging.error(f"An error occurred: {e}")
+
+
+
