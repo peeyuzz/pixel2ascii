@@ -222,7 +222,7 @@ if __name__ == "__main__":
                 print(frame)
                 time.sleep(1 / args.fps)
         if args.save:
-            save_ascii_art(ascii_art, file_format, f"ascii_output.{file_format}")
+            save_ascii_art(ascii_art, file_format, f"ascii_output.{args.file_path}" )
             logging.info(f"ASCII art saved to ascii_output.{file_format}")
     except Exception as e:
         logging.error(f"An error occurred: {e}")
