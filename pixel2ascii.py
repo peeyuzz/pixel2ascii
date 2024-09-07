@@ -233,11 +233,11 @@ def save_ascii_art(art, file_format, output_path):
     #         print(f"Compressed MP4 video saved successfully to {output_path}")
 
     #         # logging.info(f"Compressed MP4 video saved successfully to {compressed_output_path}")
-    # else:
-    #     # Convert single ASCII art to image and save
-    #     img = convert_text_to_image(art, font)
-    #     img.save(output_path)
-    #     logging.info(f"ASCII art saved as image to {output_path}")
+    else:
+        # Convert single ASCII art to image and save
+        img = convert_text_to_image(art, font)
+        img.save(output_path)
+        logging.info(f"ASCII art saved as image to {output_path}")
 
 def convert_text_to_image(text, font):
     """Converts ASCII text to an image."""
