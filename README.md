@@ -1,103 +1,86 @@
-# pixel2ascii
+# ASCII Converter CLI Tool
 
-convert images, GIFs, and videos into ASCII art.
-
-## Table of Contents
-
-- [Features](#features)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Parameters](#parameters)
-- [Code Overview](#code-overview)
-- [License](#license)
+Convert images, GIFs, and videos to ASCII art using this command-line tool.
 
 ## Features
 
-- Convert images (JPEG, PNG) to ASCII art.
-- Convert GIFs and MP4 videos to ASCII art frames.
-- Customize output with scale factor and contrast adjustments.
-- Save ASCII art as an image or animated GIF/MP4.
-- Display ASCII art in the console.
-
-## Requirements
-
-To run this script, you need to have Python 3.x installed along with the following packages:
-
-- `Pillow` for image processing
-- `NumPy` for numerical operations
-- `OpenCV` for video processing
-
-You can install the required packages using pip:
-
-```bash
-pip install pillow numpy opencv-python
-```
+- Convert static images (JPG, JPEG, PNG, JFIF) to ASCII art
+- Convert GIFs and videos (MP4) to ASCII art animations
+- Support for loading images from URLs
+- Adjustable scale factor and contrast
+- Save output as text, image, GIF, or MP4
 
 ## Installation
 
-1. Clone the repository to your local machine:
-
-   ```bash
-   git clone https://github.com/yourusername/ascii-art-generator.git
-   cd ascii-art-generator
+1. Clone this repository:
+   ```
+   git clone https://github.com/peeyuzz/ascii-converter-cli.git
+   cd ascii-converter-cli
    ```
 
-2. Ensure that all dependencies are installed as mentioned above.
+2. Install the required dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
+
+3. Ensure you have FFmpeg installed on your system for video processing.
 
 ## Usage
 
-To use the ASCII Art Generator, run the script from the command line with the required parameters. Here’s the basic command structure:
-
-```bash
-python ascii_art_generator.py --file-path <path_to_image_or_video> [options]
+```
+python ascii_converter.py [-h] [--scale-factor SCALE_FACTOR] [--contrast CONTRAST] [--fps FPS] [--save] [--output OUTPUT] [--version] file_path
 ```
 
-### Example Commands
+### Arguments
 
-- Convert an image to ASCII art:
+- `file_path`: Path to the input image, video, GIF, or URL
+- `--scale-factor`: Scale factor for the image (default: 1)
+- `--contrast`: Contrast factor for the image (default: 1)
+- `--fps`: Frames per second for animation (default: 60)
+- `--save`: Save the ASCII output
+- `--output`: Output file path (required if --save is used)
+- `--version`: Show the version number and exit
 
-  ```bash
-  python ascii_art_generator.py --file-path path/to/image.jpg
-  ```
+### Examples
 
-- Convert a GIF to ASCII art and save it:
+1. Convert an image to ASCII and display it:
+   ```
+   python ascii_converter.py path/to/image.jpg
+   ```
 
-  ```bash
-  python ascii_art_generator.py --file-path path/to/animation.gif --save
-  ```
+2. Convert an image to ASCII, adjust scale and contrast, and save the output:
+   ```
+   python ascii_converter.py path/to/image.jpg --scale-factor 0.5 --contrast 1.2 --save --output output.txt
+   ```
 
-- Convert a video to ASCII art with a specified frame rate:
+3. Convert a video to ASCII animation and save as MP4:
+   ```
+   python ascii_converter.py path/to/video.mp4 --scale-factor 0.3 --fps 30 --save --output output.mp4
+   ```
 
-  ```bash
-  python ascii_art_generator.py --file-path path/to/video.mp4 --fps 30 --save
-  ```
+4. Convert a GIF to ASCII animation and save as GIF:
+   ```
+   python ascii_converter.py path/to/animation.gif --scale-factor 0.5 --save --output output.gif
+   ```
 
-## Parameters
+5. Convert an image from a URL:
+   ```
+   python ascii_converter.py https://example.com/image.jpg --save --output output.txt
+   ```
 
-| Parameter       | Description                                          | Default Value |
-|------------------|------------------------------------------------------|---------------|
-| `--file-path`    | Path to the image, GIF, video, or URL.              | Required      |
-| `--scale-factor`  | Scale factor for the ASCII art output.               | 1             |
-| `--contrast`      | Contrast factor for the image processing.            | 1             |
-| `--fps`           | Frames per second for animated output.               | 60            |
-| `--save`          | Flag to save the ASCII art output to a file.        | False         |
+## Requirements
 
-## Code Overview
+- Python 3.6+
+- Pillow
+- NumPy
+- OpenCV
+- tqdm
+- FFmpeg (for video processing)
 
-### Key Functions
+## Contributing
 
-- **`clear_console()`**: Clears the console for a clean display of ASCII art frames.
-  
-- **`generate_ascii_art(file_path, scale_factor=1, contrast=1)`**: Main function that handles image, GIF, and video inputs, returning ASCII art.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-- **`process_frame(frame, scale_factor, contrast)`**: Processes individual video frames into ASCII art.
+## Support
 
-- **`frame_to_ascii(frame, scale_factor=1, contrast=1)`**: Converts a single video frame to ASCII art.
-
-- **`get_ascii(image, scale_factor=1, contrast=1)`**: Converts an image to ASCII art.
-
-- **`animate_frames(frames, fps=60)`**: Displays animated ASCII art frames in the console.
-
-- **`save_ascii_art(art, file_format, output_path)`**: Saves the ASCII art output as an image or video file.
-
+If you encounter any problems or have any questions, please open an issue in the GitHub repository.

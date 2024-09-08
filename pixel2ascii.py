@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import sys
 import os
 import time
@@ -6,13 +8,16 @@ import argparse
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import cv2
-from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor
-from tqdm import tqdm  # For progress bar
-import logging  # For logging
+from tqdm import tqdm
+import logging
+import subprocess
+
+__version__ = "1.0.0"
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 ASCII_CHARS = " .:-=+*%#@"
 
@@ -21,14 +26,18 @@ def clear_console():
 
 def load_image(file_path):
     """Loads an image from a file path or URL."""
-    if file_path.startswith(("http://", "https://")):
-        logging.info(f"Loading image from URL: {file_path}")
-        return Image.open(urlopen(file_path))
-    elif file_path.endswith((".jpg", ".jpeg", ".png", ".gif", ".jfif")):
-        logging.info(f"Loading image from file: {file_path}")
-        return Image.open(file_path)
-    else:
-        raise ValueError("Unsupported file format")
+    try:
+        if file_path.startswith(("http://", "https://")):
+            logger.info(f"Loading image from URL: {file_path}")
+            return Image.open(urlopen(file_path))
+        elif file_path.lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".jfif")):
+            logger.info(f"Loading image from file: {file_path}")
+            return Image.open(file_path)
+        else:
+            raise ValueError("Unsupported file format")
+    except Exception as e:
+        logger.error(f"Error loading image: {e}")
+        raise
 
 def generate_ascii(image, scale_factor=1, contrast=1):
     """Generates ASCII art for an image."""
@@ -53,9 +62,9 @@ def process_video(file_path, scale_factor=1, contrast=1):
     frames = []
     cap = cv2.VideoCapture(file_path)
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    logging.info(f"Processing video: {file_path} with {frame_count} frames")
+    logger.info(f"Processing video: {file_path} with {frame_count} frames")
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
         futures = [
             executor.submit(frame_to_ascii, frame, scale_factor, contrast)
             for ret, frame in tqdm(iter(lambda: cap.read(), (False, None)), total=frame_count, desc="Frames processed")
@@ -81,163 +90,78 @@ def frame_to_ascii(frame, scale_factor=1, contrast=1):
 
     return ascii_frame
 
-# def save_ascii_art(art, file_format, output_path):
-#     """Saves ASCII art to an output file."""
-#     font_path = r"c:\WINDOWS\Fonts\CONSOLA.TTF"
-#     font = ImageFont.truetype(font_path, size=15)
-
-#     if isinstance(art, list):
-#         logging.info(f"Saving ASCII art as {file_format} to {output_path}")
-#         if file_format == 'gif':
-#             images = [convert_text_to_image(ascii_frame, font) for ascii_frame in art]
-#             images[0].save(output_path, save_all=True, append_images=images[1:], duration=100, loop=0)
-#         elif file_format == 'mp4':
-#             height = len(art[0].split('\n')) * 20
-#             width = len(art[0].split('\n')[0]) * 15
-#             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-#             out = cv2.VideoWriter(output_path, fourcc, 10.0, (width, height))
-#             for ascii_frame in art:
-#                 frame = convert_text_to_image(ascii_frame, font)
-#                 out.write(cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR))
-#             out.release()
-#     else:
-#         convert_text_to_image(art, font).save(output_path)
-
-from PIL import Image, ImageDraw, ImageFont
-import numpy as np
-import cv2
-import logging
-from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor
-
 def save_ascii_art(art, file_format, output_path):
     """Saves ASCII art to an output file."""
-    font_path = r"c:\WINDOWS\Fonts\CONSOLA.TTF"
-    font = ImageFont.truetype(font_path, size=15)
+    try:
+        font_path = get_font_path()
+        font = ImageFont.truetype(font_path, size=15)
 
-    # Define maximum dimensions for MPEG-4
-    max_width, max_height = 4096, 2304
+        max_width, max_height = 4096, 2304
 
-    if isinstance(art, list):
-        logging.info(f"Saving ASCII art as {file_format} to {output_path}")
-        if file_format == 'gif':
-            # Use ThreadPoolExecutor to parallelize the conversion of ASCII frames to images
-            with ThreadPoolExecutor() as executor:
-                futures = []
-                # Submit tasks to convert ASCII frames to images in parallel
-                for ascii_frame in art:
-                    futures.append(executor.submit(convert_text_to_image, ascii_frame, font))
+        if isinstance(art, list):
+            logger.info(f"Saving ASCII art as {file_format} to {output_path}")
+            if file_format == 'gif':
+                save_as_gif(art, font, output_path)
+            elif file_format == 'mp4':
+                save_as_mp4(art, font, output_path, max_width, max_height)
+        else:
+            save_as_image(art, font, output_path)
 
-                # Collect the converted images with tqdm progress bar
-                images = []
-                for future in tqdm(futures, desc="Converting ASCII frames to images", unit="frame"):
-                    images.append(future.result())
+    except Exception as e:
+        logger.error(f"Error saving ASCII art: {e}")
+        raise
 
-            # Save the images as an animated GIF
-            images[0].save(output_path, save_all=True, append_images=images[1:], duration=17, loop=0)
+def get_font_path():
+    """Returns the appropriate font path based on the operating system."""
+    if os.name == 'nt':  # Windows
+        return r"c:\WINDOWS\Fonts\CONSOLA.TTF"
+    elif os.name == 'posix':  # macOS and Linux
+        font_paths = [
+            '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf',  # Linux
+            '/Library/Fonts/Courier New.ttf',  # macOS
+        ]
+        for path in font_paths:
+            if os.path.exists(path):
+                return path
+    raise FileNotFoundError("Suitable font not found. Please install DejaVu Sans Mono or Courier New.")
 
-            logging.info(f"GIF saved successfully to {output_path}")
+def save_as_gif(frames, font, output_path):
+    """Saves ASCII frames as an animated GIF."""
+    with ThreadPoolExecutor() as executor:
+        futures = [executor.submit(convert_text_to_image, ascii_frame, font) for ascii_frame in frames]
+        images = list(tqdm(executor.map(lambda f: f.result(), futures), total=len(futures), desc="Converting frames"))
+    
+    images[0].save(output_path, save_all=True, append_images=images[1:], duration=17, loop=0)
+    logger.info(f"GIF saved successfully to {output_path}")
 
-        elif file_format == 'mp4':
-            # Calculate the initial frame size
-            height = len(art[0].split('\n')) * 15
-            width = len(art[0].split('\n')[0]) * 7
+def save_as_mp4(frames, font, output_path, max_width, max_height):
+    """Saves ASCII frames as an MP4 video."""
+    height = len(frames[0].split('\n')) * 15
+    width = len(frames[0].split('\n')[0]) * 7
 
-            # Check and adjust dimensions if they exceed MPEG-4 limits
-            if width > max_width or height > max_height:
-                width, height = resize_dimensions(width, height, max_width, max_height)
+    if width > max_width or height > max_height:
+        width, height = resize_dimensions(width, height, max_width, max_height)
 
-            # Use H.264 codec for better compression
-            fourcc = cv2.VideoWriter_fourcc(*'avc1')
-            # out = cv2.VideoWriter(output_path, fourcc, 30.0, (width, height))  # Reduced FPS to 30 for smaller size
-            fps = 30.0
-            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height), isColor=True)
-            out.set(cv2.VIDEOWRITER_PROP_QUALITY, 40)
+    fourcc = cv2.VideoWriter_fourcc(*'avc1')
+    fps = 30.0
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height), isColor=True)
+    out.set(cv2.VIDEOWRITER_PROP_QUALITY, 40)
 
-            # Use ThreadPoolExecutor to parallelize frame processing
-            with ThreadPoolExecutor() as executor:
-                # Process and save frames with tqdm progress bar
-                futures = []
-                for ascii_frame in art:
-                    futures.append(executor.submit(process_frame, ascii_frame, font, width, height))
+    with ThreadPoolExecutor() as executor:
+        futures = [executor.submit(process_frame, ascii_frame, font, width, height) for ascii_frame in frames]
+        for future in tqdm(futures, desc="Saving frames to MP4", unit="frame"):
+            out.write(future.result())
 
-                for future in tqdm(futures, desc="Saving frames to MP4", unit="frame"):
-                    frame = future.result()
-                    out.write(frame)
+    out.release()
 
-            out.release()
+    compress_video(output_path)
+    logger.info(f"Compressed MP4 saved successfully to {output_path}")
 
-            # Use ffmpeg to further compress the output
-            compressed_output_path = output_path.replace('.mp4', '_compressed.mp4')
-            ffmpeg_command = f'ffmpeg -i {output_path} -vcodec libx264 -crf 28 {compressed_output_path}'
-            os.system(ffmpeg_command)
-
-        # elif file_format == 'mp4':
-    #     # Calculate the initial frame size
-    #     height = len(art[0].split('\n')) * 15
-    #     width = len(art[0].split('\n')[0]) * 7
-
-    #     # Check and adjust dimensions if they exceed MPEG-4 limits
-    #     if width > max_width or height > max_height:
-    #         width, height = resize_dimensions(width, height, max_width, max_height)
-
-    #     fps = 30
-
-    #     # FFmpeg command for compressed output
-    #     ffmpeg_command = [
-    #         'ffmpeg',
-    #         '-y',  # Overwrite output file if it exists
-    #         '-f', 'rawvideo',
-    #         '-vcodec', 'rawvideo',
-    #         '-s', f'{width}x{height}',
-    #         '-pix_fmt', 'bgr24',
-    #         '-r', str(fps),
-    #         '-i', '-',  # Input from pipe
-    #         '-c:v', 'libx264',
-    #         '-preset', 'medium',  # Adjust preset for speed/compression trade-off
-    #         '-crf', '23',  # Adjust CRF value for quality/size trade-off
-    #         '-y',
-    #         output_path
-    #     ]
-
-    #     # Start FFmpeg process
-    #     process = subprocess.Popen(ffmpeg_command, stdin=subprocess.PIPE)
-
-    #     def process_frame(ascii_frame, font, width, height):
-    #         img = np.ones((height, width, 3), dtype=np.uint8) * 255
-    #         font_scale = 0.4
-    #         font_thickness = 1
-    #         for i, line in enumerate(ascii_frame.split('\n')):
-    #             cv2.putText(img, line, (0, (i+1)*15), font, font_scale, (0,0,0), font_thickness)
-    #         return img
-
-    #     font = cv2.FONT_HERSHEY_SIMPLEX
-
-    #     # Use ThreadPoolExecutor to parallelize frame processing
-    #     with ThreadPoolExecutor() as executor:
-    #         futures = []
-    #         for ascii_frame in art:
-    #             futures.append(executor.submit(process_frame, ascii_frame, font, width, height))
-
-    #         for future in tqdm(futures, desc="Processing and compressing frames", unit="frame"):
-    #             frame = future.result()
-    #             process.stdin.write(frame.tobytes())
-
-    #     # Close FFmpeg process
-    #     process.stdin.close()
-    #     process.wait()
-
-    #     if process.returncode != 0:
-    #         print(f"Error during FFmpeg encoding. Return code: {process.returncode}")
-    #     else:
-    #         print(f"Compressed MP4 video saved successfully to {output_path}")
-
-    #         # logging.info(f"Compressed MP4 video saved successfully to {compressed_output_path}")
-    else:
-        # Convert single ASCII art to image and save
-        img = convert_text_to_image(art, font)
-        img.save(output_path)
-        logging.info(f"ASCII art saved as image to {output_path}")
+def save_as_image(art, font, output_path):
+    """Saves ASCII art as a single image."""
+    img = convert_text_to_image(art, font)
+    img.save(output_path)
+    logger.info(f"ASCII art saved as image to {output_path}")
 
 def convert_text_to_image(text, font):
     """Converts ASCII text to an image."""
@@ -263,39 +187,43 @@ def resize_dimensions(width, height, max_width, max_height):
 
     return width, height
 
-
 def process_frame(ascii_frame, font, width, height):
     """Converts an ASCII frame to an image and resizes if necessary."""
     frame = convert_text_to_image(ascii_frame, font)
     
-    # Resize frame if necessary
     if frame.size[0] > width or frame.size[1] > height:
         frame = frame.resize((width, height), Image.LANCZOS)
     
-    # Convert PIL Image to OpenCV format
     return cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR)
 
+def compress_video(input_path):
+    """Compresses the video using FFmpeg."""
+    compressed_output_path = input_path.replace('.mp4', '_compressed.mp4')
+    ffmpeg_command = f'ffmpeg -i {input_path} -vcodec libx264 -crf 28 {compressed_output_path}'
+    try:
+        subprocess.run(ffmpeg_command, shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        os.replace(compressed_output_path, input_path)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error compressing video: {e}")
+        raise
 
-def convert_text_to_image(text, font):
-    """Converts ASCII text to an image."""
-    width = len(text.split('\n')[0]) * 7
-    height = len(text.split('\n')) * 15
-    img = Image.new('RGB', (width, height), color='black')
-    d = ImageDraw.Draw(img)
-    d.text((0, 0), text, fill='white', font=font)
-    return img
-
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="ASCII art generator")
-    parser.add_argument("--file-path", required=True, help="Path to the image, video, GIF or URL")
-    parser.add_argument("--scale-factor", required=False, help="Scale factor for the image (default = 1)", default=1, type=float)
-    parser.add_argument("--contrast", required=False, help="Contrast factor for the image (default = 1)", default=1, type=float)
-    parser.add_argument("--fps", required=False, help="Frames per second for animation (default = 60)", default=60, type=int)
+    parser.add_argument("file_path", help="Path to the image, video, GIF or URL")
+    parser.add_argument("--scale-factor", type=float, default=1, help="Scale factor for the image (default: 1)")
+    parser.add_argument("--contrast", type=float, default=1, help="Contrast factor for the image (default: 1)")
+    parser.add_argument("--fps", type=int, default=60, help="Frames per second for animation (default: 60)")
     parser.add_argument("--save", action="store_true", help="Save the ASCII output")
+    parser.add_argument("--output", help="Output file path (required if --save is used)")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     args = parser.parse_args()
 
+    if args.save and not args.output:
+        parser.error("--output is required when --save is used")
+
     try:
-        file_format = args.file_path.split('.')[-1] if not args.file_path.startswith(("http://", "https://")) else "jpg"
+        file_format = args.file_path.split('.')[-1].lower() if not args.file_path.startswith(("http://", "https://")) else "jpg"
+        
         if file_format in ["jpg", "jpeg", "png", "jfif"] or args.file_path.startswith(("http://", "https://")):
             image = load_image(args.file_path)
             ascii_art = generate_ascii(image, args.scale_factor, args.contrast)
@@ -306,22 +234,16 @@ if __name__ == "__main__":
                 clear_console()
                 print(frame)
                 time.sleep(1 / args.fps)
+        else:
+            raise ValueError(f"Unsupported file format: {file_format}")
+
         if args.save:
-        # Determine the output path
-            if args.file_path.startswith(("http://", "https://")):
-                # If the input is a URL, save the file as 'asciied_' + URL in the current directory
-                output_path = "asciied_" + args.file_path.replace("http://", "").replace("https://", "").replace("/", "_")
-            else:
-                # If the input is a local file, append 'asciied_' to the start of the file name
-                output_path = os.path.join(
-                    os.path.dirname(args.file_path), 
-                    "asciied_" + os.path.basename(args.file_path)
-                )
-            
-            save_ascii_art(ascii_art, file_format, output_path)
-            logging.info(f"ASCII art saved to {output_path}")
+            save_ascii_art(ascii_art, file_format, args.output)
+            logger.info(f"ASCII art saved to {args.output}")
+
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
+        sys.exit(1)
 
-
-
+if __name__ == "__main__":
+    main()
